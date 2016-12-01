@@ -1,0 +1,77 @@
+
+<ion-view view-title="Search">
+  <ion-header-bar class="bar-stable ">
+    <i class="fa fa-search search_icon" aria-hidden="true"></i>
+    <input ng-show = "!avigating"  class="search-input" ng-change= "search()" ng-model="query" type="text" name="search" placeholder="Search">
+    <!-- //Hidden header for displaying step by step directions -->
+    <div ng-show = "navigating" class="directions_container">
+      <p>Test For Nav Directions</p>
+        <div>{{step_by_step}}</div>
+    </div>
+ </ion-header-bar>
+ <ion-content class="has-header ">
+
+   <ion-list >
+       <ion-item class="search-result" ng-repeat="result in results  | orderBy: ['-s_index', '-time']: true | limitTo: 5 track by $index">{{result.name}}
+         <div class="icon" ng-switch="result.poi_type">
+             <i ng-switch-when="restaurant" class="fa fa-cutlery" aria-hidden="true"></i>
+             <i ng-switch-when="gate" class="fa fa-plane" aria-hidden="true"></i>
+             <i ng-switch-when="toilet" class="fa fa-male" aria-hidden="true"></i>
+             <i ng-switch-when="retail" class="fa fa-shopping-bag" aria-hidden="true"></i>
+             <i ng-switch-when="station" class="fa fa-subway" aria-hidden="true"></i>
+             <i ng-switch-when="baggage-claim" class="fa fa-suitcase" aria-hidden="true"></i>
+             <i ng-switch-when="coffee" class="fa fa-coffee" aria-hidden="true"></i>
+             <i ng-switch-when="concourse" class="fa fa-plane" aria-hidden="true"></i>
+             <i ng-switch-when="fast_food" class="fa fa-cutlery" aria-hidden="true"></i>
+         </div>
+         <div class="result">
+             <p class="result-name">{{result.name}}</p>
+             <p class="result-concourse">Concourse {{result.concourse}}</p>
+         </div>
+         <div class="time">
+             <p>({{result.time}} min)</p>
+         </div>
+         <div >
+            <button class="go"  ng-click="startRoute(result)">GO</button>
+         </div>
+       </ion-item>
+    </ion-list>
+
+<div class="map_container">
+<leaflet id="map" lf-center="center" defaults="defaults" controls="controls" width="100%"></leaflet>
+</div>
+
+<ion-footer-bar align-title="left" class="bar-calm">
+
+  <h1 ng-show = "navigating" class="title">{{result.time}}</h1>
+  <div class="buttons bar-assertive" ng-click="stopNav()">
+    <button class="button">Cancel Nav</button>
+  </div>
+</ion-footer-bar>
+</ion-content>
+</ion-view>
+
+
+<!-- <div class="search-result" ng-repeat="result in results | orderBy: ['-s_index', '-time']: true | limitTo: 50 track by $index">
+      <div class="icon" ng-switch="result.poi_type">
+          <i ng-switch-when="restaurant" class="fa fa-cutlery" aria-hidden="true"></i>
+          <i ng-switch-when="gate" class="fa fa-plane" aria-hidden="true"></i>
+          <i ng-switch-when="toilet" class="fa fa-male" aria-hidden="true"></i>
+          <i ng-switch-when="retail" class="fa fa-shopping-bag" aria-hidden="true"></i>
+          <i ng-switch-when="station" class="fa fa-subway" aria-hidden="true"></i>
+          <i ng-switch-when="baggage-claim" class="fa fa-suitcase" aria-hidden="true"></i>
+          <i ng-switch-when="coffee" class="fa fa-coffee" aria-hidden="true"></i>
+          <i ng-switch-when="concourse" class="fa fa-plane" aria-hidden="true"></i>
+          <i ng-switch-when="fast_food" class="fa fa-cutlery" aria-hidden="true"></i>
+      </div>
+      <div class="result">
+          <p class="result-name">{{result.name}}</p>
+          <p class="result-concourse">Concourse {{result.concourse}}</p>
+      </div>
+      <div class="time">
+          <p>({{result.time}} min)</p>
+      </div>
+      <div class="go" ng-click="startRoute(result)">
+          <p>GO</p>
+      </div>
+  </div> -->
