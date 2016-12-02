@@ -2,17 +2,25 @@ from flask import Flask, render_template, redirect, request, session, flash, jso
 # from dotenv import load_dotenv, find_dotenv
 from flask_cors import CORS, cross_origin
 import heapq
-import os
+import os, io
 import sys
 import json
+import csv
 
 
-# load_dotenv(find_dotenv())
-# tmp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
-app = Flask('Connect', static_url_path='')
+base_dir = os.path.dirname(os.path.abspath(__file__))
+# static_dir = os.path.join(base_dir, 'static')
+# app = Flask('Connect', static_url_path='', static_folder=static_dir)
+# app = Flask('Connect', template_folder=tmp_dir)
+
+# tmp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),'templates')
+static_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)),'static')
+app = Flask('Connect',static_url_path='',static_folder=static_folder)
+# app = Flask('Connect', template_folder=tmp_dir)
+
 CORS(app)
-with open('points.json') as json_file:
-    pointsJSON = json.load(json_file)
+with open(base_dir + '/points.json') as json_file:
+   pointsJSON = json.load(json_file)
 
 
 def add2way_vertex(origin,destination,distance):
@@ -84,7 +92,8 @@ class Graph:
 g = Graph()
 
 
-concourses = [{'name':'A', 'longitude':'-84.439175'},
+concourses = [{'name':'T', 'longitude':'-84.442447'},
+              {'name':'A', 'longitude':'-84.439175'},
               {'name':'B', 'longitude':'-84.435897'},
               {'name':'C', 'longitude':'-84.432600'},
               {'name':'D', 'longitude':'-84.429307'},
@@ -192,20 +201,43 @@ for concourse in concourses:
         # g.add_vertex(midpoint_arr[i]['name'],second)
         # g.add_vertex(midpoint_arr[i+1]['name'],first)
         add2way_vertex(midpoint_arr[i]['id'],midpoint_arr[i+1]['id'],dist)
+# If the midpoint belongs to horizontal gates in E terminal, connect the horizontal line
+#---------------------------------- This is the code to connect the horizontal line in E terminal
+concoursePointsEH =[]
+pointsSortedEH = []
+for i in range(0,json_len):
+   if(pointsJSON[i]['latitude'] == '33.640631'):
+       concoursePointsEH.append(pointsJSON[i])
+#sort the arry of points by
+pointsSortedEH = sorted(concoursePointsEH,key=lambda k:k['longitude'])
+
+print pointsSortedEH[0]['longitude']
+for t in range(0,len(pointsSortedEH)-1):
+   dist1 = abs(float(pointsSortedEH[t+1]['longitude']) - float(pointsSortedEH[t]['longitude'])) * 363917.7912
+   add2way_vertex(pointsSortedEH[t]['id'],pointsSortedEH[t+1]['id'],dist1)
+
+
+#----------------------------------------
 terminal_distance = 120
+# adding the vertex to connect horizontal and center for E terminal
+add2way_vertex('2170','6795',terminal_distance)
 
 add2way_vertex('294','295',terminal_distance)
 add2way_vertex('296','295',terminal_distance)
-g.add_vertex('295',{'293':terminal_distance})
-g.add_vertex('293',{'291':terminal_distance})
-g.add_vertex('291',{'289':terminal_distance})
-g.add_vertex('289',{'287':terminal_distance})
-g.add_vertex('287',{'285':terminal_distance})
-g.add_vertex('290',{'292':terminal_distance})
-g.add_vertex('286',{'288':terminal_distance})
-g.add_vertex('292',{'294':terminal_distance})
-g.add_vertex('288',{'290':terminal_distance})
-g.add_vertex('285',{})
+
+#two way vertex to prevent wrong direction
+
+
+g.add_vertex('293',{'295':terminal_distance})
+g.add_vertex('291',{'293':terminal_distance})
+g.add_vertex('289',{'291':terminal_distance})
+g.add_vertex('287',{'289':terminal_distance})
+g.add_vertex('285',{'287':terminal_distance})
+g.add_vertex('292',{'290':terminal_distance})
+g.add_vertex('288',{'286':terminal_distance})
+g.add_vertex('294',{'292':terminal_distance})
+g.add_vertex('290',{'288':terminal_distance})
+g.add_vertex('286',{})
 # add2way_vertex('285','287',terminal_distance)
 
 # origin = 'A32'

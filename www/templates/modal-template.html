@@ -1,0 +1,23 @@
+<ion-modal-view>
+  <ion-header-bar ng-if = "navigating" align-title = "center" class="bar-stable">
+        <img class = "logo_img" src="templates/A_Team_Logo.png" alt="logo" />
+    
+         <button ng-click="closeModal()" class="button">
+           <i class="fa fa-angle-double-up chevron" aria-hidden="true"></i>
+         </button>
+ </ion-header-bar>
+
+   <ion-content class="has-header">
+     <ion-list>
+     <ion-item class="search-result" ng-repeat="step in steps track by $index">
+          <!-- <div class="dot">
+              <i ng-show="" class="fa fa-hand-o-right" aria-hidden="true"></i>
+              <i ng-hide="" style="font-size: .6em;" class="fa fa-circle" aria-hidden="true"></i>
+          </div> -->
+          <div class="step">
+                   {{step}}
+          </div>
+      </ion-item>
+    </ion-list>
+   </ion-content>
+</ion-modal-view>
