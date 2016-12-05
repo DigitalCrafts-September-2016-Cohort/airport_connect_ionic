@@ -5,11 +5,39 @@
     <!-- <i class="fa fa-search search_icon search_icon" aria-hidden="true"></i> -->
     <input   class="search-input" ng-change= "search()" ng-model="query" type="text" name="search" placeholder="Where to? (A30, Starbucks)">
  </ion-header-bar>
+<!-- <ion-header-bar ng-show = "!navigating" class="bar-stable"> -->
+ <ion-list class = "bar bar-subheader" ng-show = "!navigating" ng-if="show_results">
+     <ion-item class="search-result" ng-repeat="result in results  | orderBy: ['-s_index', '-time']: true | limitTo: 5 track by $index">
+       <div class="icon" ng-switch="result.poi_type">
+           <i ng-switch-when="restaurant" class="fa fa-cutlery" aria-hidden="true"></i>
+           <i ng-switch-when="gate" class="fa fa-plane" aria-hidden="true"></i>
+           <i ng-switch-when="toilet" class="fa fa-male" aria-hidden="true"></i>
+           <i ng-switch-when="retail" class="fa fa-shopping-bag" aria-hidden="true"></i>
+           <i ng-switch-when="station" class="fa fa-subway" aria-hidden="true"></i>
+           <i ng-switch-when="baggage-claim" class="fa fa-suitcase" aria-hidden="true"></i>
+           <i ng-switch-when="coffee" class="fa fa-coffee" aria-hidden="true"></i>
+           <i ng-switch-when="concourse" class="fa fa-plane" aria-hidden="true"></i>
+           <i ng-switch-when="fast_food" class="fa fa-cutlery" aria-hidden="true"></i>
+       </div>
+       <div class="result">
+           <p class="result-name">{{result.name}}</p>
+           <p class="result-concourse">Concourse {{result.concourse}}</p>
+       </div>
+       <div class="time">
+           <p>({{result.time}} min)</p>
+       </div>
+       <div>
+          <button class="button go_button"  ng-click="startRoute(result)">GO</button>
+       </div>
+     </ion-item>
+  </ion-list>
+<!-- </ion-header-bar> -->
 
  <!-- //Hidden header for displaying step by step directions -->
  <ion-header-bar ng-if = "navigating" align-title = "center" class="bar-stable">
        <img class = "logo_img" src="templates/red_logo.png" alt="logo" />
-    <h2 class = "title">Continue Forward Straight</h2>
+
+    <h2 class = "title">{{step_by_step}}</h2>
         <button ng-click="openModal()" class="button">
           <i class="fa fa-angle-double-down" aria-hidden="true"></i>
         </button>
@@ -19,31 +47,6 @@
 
  <ion-content class="has-header has-footer">
 
-   <ion-list ng-show = "!navigating" ng-if="show_results">
-       <ion-item class="search-result" ng-repeat="result in results  | orderBy: ['-s_index', '-time']: true | limitTo: 5 track by $index">
-         <div class="icon" ng-switch="result.poi_type">
-             <i ng-switch-when="restaurant" class="fa fa-cutlery" aria-hidden="true"></i>
-             <i ng-switch-when="gate" class="fa fa-plane" aria-hidden="true"></i>
-             <i ng-switch-when="toilet" class="fa fa-male" aria-hidden="true"></i>
-             <i ng-switch-when="retail" class="fa fa-shopping-bag" aria-hidden="true"></i>
-             <i ng-switch-when="station" class="fa fa-subway" aria-hidden="true"></i>
-             <i ng-switch-when="baggage-claim" class="fa fa-suitcase" aria-hidden="true"></i>
-             <i ng-switch-when="coffee" class="fa fa-coffee" aria-hidden="true"></i>
-             <i ng-switch-when="concourse" class="fa fa-plane" aria-hidden="true"></i>
-             <i ng-switch-when="fast_food" class="fa fa-cutlery" aria-hidden="true"></i>
-         </div>
-         <div class="result">
-             <p class="result-name">{{result.name}}</p>
-             <p class="result-concourse">Concourse {{result.concourse}}</p>
-         </div>
-         <div class="time">
-             <p>({{result.time}} min)</p>
-         </div>
-         <div >
-            <button class="button go_button"  ng-click="startRoute(result)">GO</button>
-         </div>
-       </ion-item>
-    </ion-list>
 
 <div class="map_container">
 <leaflet id="map" lf-center="center" defaults="defaults" controls="controls" width="100%"></leaflet>
@@ -51,9 +54,16 @@
 
 
 </ion-content>
-<ion-footer-bar ng-show = "navigating" align-title="center" class="bar-dark">
+<ion-footer-bar ng-if = "!navigating" align-title="center" class="bar-assertive">
 
-  <h1 class="title">23 min</h1>
+  <h1 class="title">Welcome to ATL</h1>
+
+
+
+</ion-footer-bar>
+<ion-footer-bar ng-if = "navigating" align-title="center" class="bar-dark">
+
+  <h1 class="title">{{time_left}} min</h1>
 
     <button ng-click="stopNav()" class="button button-assertive">Done</button>
 

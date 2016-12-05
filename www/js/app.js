@@ -8,6 +8,8 @@
 
 
 var app = angular.module('airport_connect', ['ionic', 'ui.router', 'leaflet-directive']);
+var basemap = 'https://api.mapbox.com/styles/v1/jesslyn-landgren/ciw6blbhw001u2kmgu04klrja/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiamVzc2x5bi1sYW5kZ3JlbiIsImEiOiJ4VUxXQ1BZIn0.6tb-5bu-J-kVGvAbTn6MQQ';
+
 
 app.run(function($ionicPlatform) {
   $ionicPlatform.ready(function() {
@@ -35,13 +37,14 @@ app.config(function($stateProvider, $urlRouterProvider) {
 
 app.factory('AirportConnect', function($http) {
     var service = {};
-    service.getSearchResults = function(query) {
+    service.getSearchResults = function(query, origin) {
         var url = 'http://localhost:5000/search';
         return $http({
             method: 'GET',
             url: url,
             params: {
-                query: query
+                query: query,
+                origin_id: origin.id
             }
         });
     };
@@ -67,27 +70,31 @@ app.factory('AirportConnect', function($http) {
     return service;
 });
 
-
+//Controller for page
 app.controller('NavController', function($scope, $state, AirportConnect, leafletData, $ionicModal) {
 
-  //Display splash screen on app load
-  $scope.home= true;
+    //Display splash screen on app load
+    $scope.home= true;
 
-  //Navigation view elements are hidden by default
-  $scope.navigating = false;
+    //Navigation view elements are hidden by default
+    $scope.navigating = false;
 
+    //Initialize Leaflet Map with Geolocation control
     angular.extend($scope, {
+        //Sets map view centered at ATL airport
         center: {
             lat: 33.640952,
             lng: -84.433220,
             zoom: 14
         },
+        //Attaches mapbox light tile layer
         defaults: {
             maxZoom: 20,
             zoomControl: false,
-            tileLayer: 'https://api.mapbox.com/styles/v1/jesslyn-landgren/ciw6blbhw001u2kmgu04klrja/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiamVzc2x5bi1sYW5kZ3JlbiIsImEiOiJ4VUxXQ1BZIn0.6tb-5bu-J-kVGvAbTn6MQQ',
+            tileLayer: basemap,
             tileLayerOptions: {maxZoom:20}
         },
+        //Adds geolocation control button to map interface
         controls: {
             custom: [
                 L.control.locate({
@@ -96,54 +103,68 @@ app.controller('NavController', function($scope, $state, AirportConnect, leaflet
                         outOfView: 'setView'
                     },
                     drawCircle: false,
-                     icon: 'fa fa-crosshairs geolocate',
-                     locateOptions: {
-                         watch: false
-                     },
-                     position: 'bottomright'
-                 })
+                    icon: 'fa fa-crosshairs geolocate',
+                    locateOptions: {
+                        watch: false
+                    },
+                    position: 'bottomright'
+                })
             ]
         }
     });
 
+    //Called to hide splash page
     $scope.useApp = function (){
-         $scope.home = false;
-         $scope.getOrigin();
-     };
+        $scope.home = false;
+        $scope.getOrigin();
+    };
 
-     //Get the geolocation of the user and set to origin for later API calls
-     $scope.getOrigin = function (){
-         leafletData.getMap('map').then(function(map) {
+    //Finds the node in the graph closest to the user's location
+    $scope.getOriginNode = function (){
 
-             //Try to get user location
-             map.locate({
-                 watch: false,
-                 setView: false,
-                 timeout: 1000,
-                 maximumAge: 20000,
-                 enableHighAccuracy: true
-             });
+    };
 
-             //If the user location is found
-             map.on('locationfound', function (e) {
-                 console.log(e.latlng, e.accuracy);
-                 $scope.getOriginNode();
-             });
+    //Get the geolocation of the user and set to origin for later API calls
+    $scope.getOrigin = function (){
+        leafletData.getMap('map').then(function(map) {
+            //Try to get user location
+            map.locate({
+                watch: false,
+                setView: false,
+                timeout: 1000,
+                maximumAge: 20000,
+                enableHighAccuracy: true
+            });
+            //If the user location is found
+            map.on('locationfound', function (e) {
+                console.log(e.latlng, e.accuracy);
+                // $scope.getOriginNode(e.latlng.lat, e.latlng.lng);
+                $scope.origin = {
+                    "id": "42",
+            		"name": "B8",
+            		"latitude": "33.638719",
+            		"longitude": "-84.436027",
+            		"poi_type": "gate",
+            		"concourse": "B"
+                };
+            });
+            //If the user location is NOT found
+            map.on('locationerror', function(e) {
+                $scope.origin = {
+                    "id": "42",
+            		"name": "B8",
+            		"latitude": "33.638719",
+            		"longitude": "-84.436027",
+            		"poi_type": "gate",
+            		"concourse": "B"
+                };
+            });
+        });
+    };
 
-             //If the user location is not found
-             map.on('locationerror', function(e) {
-                 //something
-             });
-         });
-     };
-
+    // Creates GeoJSON for all points (network nodes) - ONLY USED FOR DIAGNOSTICS
     $scope.all_points = [];
-    // $scope.navigating = false;
-    // $scope.time_left = 30;
-    // $scope.step_by_step = "Continue Straight";
     $scope.geoJSON = [];
-
-    // Creates GeoJSON for all points (network nodes)
     $scope.getAllPoints = function(){
         AirportConnect.getAllPoints().success(function(all_points){
             var points = [];
@@ -152,17 +173,16 @@ app.controller('NavController', function($scope, $state, AirportConnect, leaflet
                     "type": "Feature",
                         "properties": {
                             "concourse": all_points[point].concourse,
-                            "name": all_points[point].name,
+                            "name": all_points[point].id,
                             "type": all_points[point].poi_type
                         }, "geometry":{
                             "type": "Point",
                             "coordinates": [all_points[point].longitude, all_points[point].latitude]
                         }
                 };
-                // console.log(all_points[point].poi_type);
                 $scope.geoJSON.push(geoJSON);
             }
-            // $scope.drawAllPoints();
+            $scope.drawAllPoints();
         });
     };
 
@@ -191,338 +211,445 @@ app.controller('NavController', function($scope, $state, AirportConnect, leaflet
                     }
                 },
                 pointToLayer: function (feature, latlng){
-                      console.log('Origin GeoJSON coord', latlng);
-                      return L.circleMarker(latlng, pointMarkerStyle);
-                      // myIcon = L.divIcon({
-                      //     className: 'label',
-                      //     html: feature.properties.name,
-                      //     iconSize: [100, 40]
-                      // });
-                      // pointToLayer: function (feature, latlng) {
-                      //     console.log('Origin GeoJSON coord', latlng);
-                      //     return L.circleMarker(latlng, geojsonMarkerOptions);
-                      // }
-                      // return L.marker(latlng, {icon: myIcon});
-                  }
-                  // ,
-                  // onEachFeature: function(feature, layer){
-                  //     return L.circleMarker([feature.coordinates], pointMarkerStyle);
-                  // }
-              }).addTo(map);
-          });
-      };
+                    // return L.circleMarker(latlng, pointMarkerStyle);
+                    myIcon = L.divIcon({
+                        className: 'label',
+                        html: feature.properties.name,
+                        iconSize: [100, 40]
+                    });
+                    return L.marker(latlng, {icon: myIcon});
+                }
+            }).addTo(map);
+        });
+    };
 
-      //Draws all the points in the network on the map every time page is loaded. (comment the next line to turn off)
-      $scope.getAllPoints();
+    //////////////// KEYUR COMMENT HERE TO TURN ON LABELS ///////////////////
+    //Draws all the points in the network on the map every time page is loaded.
+    // $scope.getAllPoints();
+    /////////////////////////////////////////////////////////////////////////
 
-      $scope.search = function() {
+    //Search All Routes given an origin point object
+    $scope.search = function() {
+        console.log($scope.query);
 
         leafletData.getMap('map').then(function(map) {
-          map.locate({
-              watch: true,
-              setView: false,
-              timeout: 1000,
-              maximumAge: 20000,
-              enableHighAccuracy: true
-          });
 
-          map.on('locationfound', function (e) {
-              console.log(e.latlng, e.accuracy);
-              $scope.getOrigin();
-          });
-      });
-          console.log($scope.query);
-          AirportConnect.getSearchResults($scope.query).success(function(searchResults) {
-              $scope.results = searchResults;
-              if ($scope.results.length > 0){
-                  $scope.show_results = true;
-              } else {
-                  $scope.show_results = false;
-              }
-
-          }).error(function(){
-              $scope.show_results= false;
-              console.log('no search results');
-          });
-      };
-
-      $scope.startRoute = function (point) {
-          //sets time footer ng-if boolean to true & hides search bar ng-if
-          console.log("Starting Start Route");
-
-          $scope.show_steps = false;
-          $scope.arrived = false;
-          $scope.navigating = true;
-
-
-        $scope.showSteps = function(){
-            console.log('Show Steps');
-            $scope.show_steps = !$scope.show_steps;
+            //Try to get user location
+            map.locate({
+                watch: false,
+                setView: false,
+                timeout: 1000,
+                maximumAge: 20000,
+                enableHighAccuracy: true
+            });
+            //If the user location is found
+            map.on('locationfound', function (e) {
+                console.log(e.latlng, e.accuracy);
+                // $scope.getOriginNode(e.latlng.lat, e.latlng.lng);
+                $scope.origin = {
+                    "id": "42",
+            		"name": "B8",
+            		"latitude": "33.638719",
+            		"longitude": "-84.436027",
+            		"poi_type": "gate",
+            		"concourse": "B"
+                };
+            });
+            //If the user location is NOT found
+            map.on('locationerror', function(e) {
+                $scope.origin = {
+                    "id": "42",
+            		"name": "B8",
+            		"latitude": "33.638719",
+            		"longitude": "-84.436027",
+            		"poi_type": "gate",
+            		"concourse": "B"
+                };
+            });
+            console.log($scope.origin);
+        });
+        $scope.origin = {
+            "id": "42",
+        "name": "B8",
+        "latitude": "33.638719",
+        "longitude": "-84.436027",
+        "poi_type": "gate",
+        "concourse": "B"
         };
 
-          var tolerance = 0.000137;
-          leafletData.getMap('map').then(function(map) {
-              map.invalidateSize(true);
-              map.locate({
-                  watch: true,
-                  setView: false,
-                  timeout: 1000,
-                  maximumAge: 20000,
-                  enableHighAccuracy: true
-              });
+        // console.log($scope.origin.id);
+  console.log($scope.query);
+        //Call search API and bind results to scope variable
+        AirportConnect.getSearchResults($scope.query, $scope.origin).success(function(searchResults) {
+            $scope.results = searchResults;
+            // console.log(JSON.stringify($scope.results))
+            if ($scope.results.length > 0){
+                $scope.show_results = true;
+            } else {
+                $scope.show_results = false;
+            }
+            console.log("Search results : " + $scope.results[0])
+        }).error(function(){
+            $scope.show_results= false;
+        });
+    };
+
+    //Handles the page view changes and API request for retrieving and showing a route
+
+    $scope.startRoute = function (selectedDestination) {
+        //Set variables to show navigation view elements and hide search view elements
+        //sets time footer ng-if boolean to true & hides search bar ng-if
+        $scope.navigating = true;
+        $scope.show_all_steps = false;
+        $scope.arrived = false;
+
+        //Shows or Hides list of navigation steps for current route (called every time the chevron icon is clicked)
+        $scope.showSteps = function(){
+            // console.log('Show Steps');
+            $scope.show_all_steps = !$scope.show_all_steps;
+        };
+
+        //Set scope destination to node clicked by user in search results
+        $scope.destination = selectedDestination;
+        console.log("Destination :" + $scope.destination);
+
+        //Calls the service method that calls the API route to get a graph route given an origin and destination node
+        AirportConnect.getRoute($scope.origin, $scope.destination).success(function(routeResult) {
+            //Separates the point and instruction arrays returned in the JSON object
+            $scope.route_points = routeResult.points;
+            $scope.instructions = routeResult.instructions;
+
+            // Create an arrary of steps from instructions array(eliminates instructions for points where instruction does not change)
+            var previous_step = '';
+            var current_step = '';
+            $scope.steps = [];
+            for (var i=0; i<$scope.instructions.length; i++){
+                if (i===0){
+                    $scope.steps.push($scope.instructions[i]);
+                } else if (i < $scope.instructions.length-1){
+                    previous_step = $scope.instructions[i-1];
+                    current_step = $scope.instructions[i];
+                    if (current_step !== previous_step) {
+                        console.log("new step");
+                        $scope.steps.push(current_step);
+                    }
+                } else {
+                    previous_step = $scope.instructions[i-1];
+                    current_step = $scope.instructions[i];
+                    $scope.steps.push($scope.instructions[i]);
+                }
+            }
+
+            // console.log("List of steps: " + $scope.steps);
+
+            //Assigns route point array and instruction array to new variables to use in block that checks user position within route (so original route variables won't be modified)
+            $scope.point_route_check = routeResult.points;
+            $scope.instructions_check = routeResult.instructions;
+            $scope.dist_to_dest_check = routeResult.dist_to_dest;
+          //
+            console.log($scope.instructions_check[0]);
+
+            ///////CONVERTS ARRAY OF ROUTE POINTS (JSON) TO GEOJSON FOR DISPLAY
+            $scope.line_coord = [];
+            $scope.originGeoJSON = [];
+            $scope.destGeoJSON = [];
+            $scope.stationsGeoJSON = [];
+            var last = ($scope.route_points.length-1).toString();
+            for (var point in $scope.route_points) {
+                for (var test in $scope.route_points[point]){
+                    var current_node = $scope.route_points[point][test];
+                    var tempGeoJSON = {
+                        "type": "Feature",
+                            "properties": {
+                                // "concourse": $scope.route_points[point].concourse,
+                                // "name": $scope.route_points[point].name,
+                                "type": current_node.poi_type
+                            }, "geometry":{
+                                "type": "Point",
+                                "coordinates": [current_node.longitude, current_node.latitude]
+                            }
+                    };
+                    $scope.line_coord.push([current_node.longitude, current_node.latitude]);
+                    // console.log($scope.line_coord);
+                    if (point === '0'){
+                        console.log("got origin");
+                        $scope.originGeoJSON.push(tempGeoJSON);
+                        $scope.origin_lat = parseFloat(current_node.latitude);
+                        $scope.origin_lng = parseFloat(current_node.longitude);
+                    } else if (point === last) {
+                        // console.log("got dest");
+                        $scope.destGeoJSON.push(tempGeoJSON);
+                        $scope.destination_lat = parseFloat(current_node.latitude);
+                        $scope.destination_lng = parseFloat(current_node.longitude);
+                    } else if (current_node.poi_type === 'escalator'){
+                        // console.log("got train station");
+                        $scope.stationsGeoJSON.push(tempGeoJSON);
+                    }
+                    break;
+                }
+
+            }
+            $scope.line = {
+                "type": "Feature",
+                    "properties": {
+                    }, "geometry":{
+                        "type": "LineString",
+                        "coordinates": $scope.line_coord
+                    }
+            };
+
+            ///Calls function to draw the route on the map using GEOJSON from above
+            $scope.drawRoute();
+
+            //Sets bounds of map to zoom to entire route
+            leafletData.getMap('map').then(function(map) {
+                map.fitBounds(L.latLngBounds([$scope.origin_lat, $scope.origin_lng], [$scope.destination_lat, $scope.destination_lng]));
+                map.locate({
+                    watch: true,
+                    setView: false,
+                    timeout: 1000,
+                    maximumAge: 20000,
+                    enableHighAccuracy: true
+                });
+                ////////DOES THIS ACTUALLY DO ANYTHING???
+                // if ($scope.point_route_check) {
+                //     var latlngs = [];
+                //     for (var i=0; i<$scope.point_route_check; i++){
+                //         if (i === 0 || i == $scope.point_route_check.length-1){
+                //             $scope.latlngs.push({lat: parseFloat($scope.point_route_check).lat,
+                //                           lng: parseFloat($scope.point_route_check).lng
+                //                       });
+                //         }
+                //     }
+                // }
+
+                //If user location found, check to see if user has reached the next point in the route
+                //Every 20 seconds
+                map.on('locationfound', function (e) {
+                    console.log("In location found")
+                    console.log(e.latlng, e.accuracy);
+                    $scope.step_by_step = $scope.instructions_check[0];
+                    $scope.time_left = parseInt($scope.dist_to_dest_check[0]/270);
 
 
-              if ($scope.point_route_check) {
-                  var latlngs = [];
-                  for (var i=0; i<$scope.point_route_check; i++){
-                      if (i === 0 || i == $scope.point_route_check.length-1){
-                          $scope.latlngs.push({lat: parseFloat($scope.point_route_check).lat,
-                                        lng: parseFloat($scope.point_route_check).lng
-                                    });
-                      }
-                  }
-              }
-              map.on('locationfound', function (e) {
-                  console.log(e.latlng, e.accuracy);
-                  $scope.origin.lat = e.latlng.lat;
-                  $scope.origin.lng = e.latlng.lng;
+                    ///Takes array of route points and removes one each time the user reaches it
+                    var tolerance = 0.000137;
+                    if ($scope.point_route_check) {
+                        //If only one point remaining in route
+                        if ($scope.point_route_check.length === 1){
+                            //If user is close to remaining point in route, then they have arrived
+                            if (((e.latlng.lat - $scope.next_point.latitude) < tolerance) && ((e.latlng.lng - $scope.next_point.longitude) < tolerance)){
+                                //Sets page to arrived state
+                                $scope.arrived = true;
+                            }
+                        }
+                        //If there are remaining steps in route (>1)
+                        else if ($scope.point_route_check.length > 1){
+                            //Current point is first point in route points array
+                            $scope.current_point = $scope.point_route_check[0];
+                            $scope.next_point = $scope.point_route_check[1];
+
+                            //If user is close to the next point in the array
+                            if (((e.latlng.lat - $scope.next_point.latitude) < tolerance) && ((e.latlng.lng - $scope.next_point.longitude) < tolerance)){
+                                //Get instructions for current route point
+                                $scope.step_by_step = $scope.instructions_check[0];
+                                console.log($scope.step_by_step);
+                                console.log($scope.instructions_check[0]);
+                                //Get distance remaining for current route point (convert to time)
+                                $scope.time_left = parseInt($scope.dist_to_dest_check[0]/270);
+                                //Remove current point, its instructions, and its dist from route arrays
+                                $scope.instructions_check.splice(0,1);
+                                $scope.point_route_check.splice(0,1);
+                                $scope.dist_to_dest_check.splice(0,1);
+                            }
+                        }
+                    } else {
+
+                    }
+                });
+
+                map.on('locationerror', function (e) {
+                    console.log("In location found")
+                      console.log("List of steps: " + $scope.steps);
+                    // console.log(e.latlng, e.accuracy);
+                    $scope.step_by_step = $scope.instructions_check[0];
+                    $scope.time_left = parseInt($scope.dist_to_dest_check[0]/270);
 
 
-                  $scope.time_left = 30;
-                  $scope.step_by_step = $scope.steps[0];
+                    ///Takes array of route points and removes one each time the user reaches it
+                    var tolerance = 0.000137;
+                    if ($scope.point_route_check) {
+                        //If only one point remaining in route
+                        if ($scope.point_route_check.length === 1){
+                            //If user is close to remaining point in route, then they have arrived
+                            if (((e.latlng.lat - $scope.next_point.latitude) < tolerance) && ((e.latlng.lng - $scope.next_point.longitude) < tolerance)){
+                                //Sets page to arrived state
+                                $scope.arrived = true;
+                            }
+                        }
+                        //If there are remaining steps in route (>1)
+                        else if ($scope.point_route_check.length > 1){
+                            //Current point is first point in route points array
+                            $scope.current_point = $scope.point_route_check[0];
+                            $scope.next_point = $scope.point_route_check[1];
 
-                  if ($scope.point_route_check) {
-                      if ($scope.point_route_check.length === 1){
-                          if (((e.latlng.lat - $scope.next_point.latitude) < tolerance) && ((e.latlng.lng - $scope.next_point.longitude) < tolerance)){
-                              console.log("You have arrived!");
-                              console.log("End of route check");
-                          }
-                      }else if ($scope.point_route_check.length > 1){
-                      $scope.current_point = $scope.point_route_check[0];
-                      $scope.next_point = $scope.point_route_check[1];
-                          if (((e.latlng.lat - $scope.next_point.latitude) < tolerance) && ((e.latlng.lng - $scope.next_point.longitude) < tolerance)){
-                              $scope.step_by_step = $scope.instructions_check[0];
-                              $scope.time_left = $scope.current_point.time;
-                              $scope.instructions_check.splice(0,1);
-                              $scope.point_route_check.splice(0,1);
-                              console.log($scope.point_route_check);
-                          }
-                      }
-                  } else {
+                            //If user is close to the next point in the array
+                            if (((e.latlng.lat - $scope.next_point.latitude) < tolerance) && ((e.latlng.lng - $scope.next_point.longitude) < tolerance)){
+                                //Get instructions for current route point
+                                $scope.step_by_step = $scope.instructions_check[0];
+                                console.log($scope.step_by_step);
+                                console.log($scope.instructions_check[0]);
+                                //Get distance remaining for current route point (convert to time)
+                                $scope.time_left = parseInt($scope.dist_to_dest_check[0]/270);
+                                //Remove current point, its instructions, and its dist from route arrays
+                                $scope.instructions_check.splice(0,1);
+                                $scope.point_route_check.splice(0,1);
+                                $scope.dist_to_dest_check.splice(0,1);
+                            }
+                        }
+                    } else {
 
-                  }
-              });
-              // map.fitBounds([$scope.origin.lat, $scope.origin.lng])
-          });
+                    }
+                });
+            });
+            ////////////////////////////////////////////////////////////////////////
+        });
 
-          $scope.destination = point;
-          $scope.origin = {
-      		"id": "2",
-      		"name": "A2",
-      		"latitude": "33.637749",
-      		"longitude": "-84.4393355",
-      		"poi_type": "gate",
-      		"concourse": "A"
-      	};
-        console.log($scope.origin);
+        // Draws Route Path
+        $scope.drawRoute = function(){
+            leafletData.getMap('map').then(function(map) {
 
-          AirportConnect.getRoute($scope.origin, $scope.destination).success(function(routeResult) {
-              // console.log('Route Result', routeResult);
-              $scope.route_points = routeResult.points;
-              $scope.instructions = routeResult.instructions;
+                // var originStyle = {
+                //     radius: 5,
+                //     fillColor: "#5fad75",
+                //     color: "#5fad75",
+                //     weight: 1,
+                //     opacity: 1,
+                //     fillOpacity: 1
+                // };
+                //
+                // var destinationStyle = {
+                //     radius: 5,
+                //     fillColor: "#ef473a",
+                //     color: "#ef473a",
+                //     weight: 1,
+                //     opacity: 1,
+                //     fillOpacity: 1
+                // };
+                //
+                // var stationStyle = {
+                //     radius: 5,
+                //     fillColor: "#5c5c5c",
+                //     color: "#5c5c5c",
+                //     weight: 1,
+                //     opacity: 1,
+                //     fillOpacity: 1
+                // };
+                //Plot points
+                L.geoJSON($scope.originGeoJSON, {
+                    pointToLayer: function (feature, latlng){
+                        // return L.circleMarker(latlng, pointMarkerStyle);
+                        myIcon = L.divIcon({
+                            className: 'label',
+                            html: '<i class="fa fa-map-pin" style="font-size: 2em; color: #56b881;" aria-hidden="true"></i>'
+                        });
+                        return L.marker(latlng, {icon: myIcon});
+                    }
+                }).addTo(map);
+
+                L.geoJSON($scope.destGeoJSON, {
+                    pointToLayer: function (feature, latlng){
+                        // return L.circleMarker(latlng, pointMarkerStyle);
+                        myIcon = L.divIcon({
+                            className: 'label',
+                            html: '<i class="fa fa-flag" style="font-size: 2em; color: #ef473a;" aria-hidden="true"></i>'
+                        });
+                        return L.marker(latlng, {icon: myIcon});
+                    }
+                }).addTo(map);
+
+                L.geoJSON($scope.stationsGeoJSON, {
+                    // pointToLayer: function (feature, latlng) {
+                    //     return L.circleMarker(latlng, stationStyle);
+                    // }
+                    pointToLayer: function (feature, latlng){
+                        // return L.circleMarker(latlng, pointMarkerStyle);
+                        myIcon = L.divIcon({
+                            className: 'label',
+                            html: '<i class="fa fa-subway" style="font-size: 1.5em; color: #5c5c5c;" aria-hidden="true"></i>',
+                        });
+                        return L.marker(latlng, {icon: myIcon});
+                    }
+                }).addTo(map);
 
 
-              // Get steps (eliminates instructions for points where instruction does not change)
-              var previous_step = '';
-               var current_step = '';
-               $scope.steps = [];
-               for (var i=0; i<$scope.instructions.length; i++){
-                   console.log(i);
-                   if (i===0){
-                       console.log('first step');
-                       $scope.steps.push($scope.instructions[i]);
-                   } else if (i < $scope.instructions.length-1){
-                       console.log('checking steps');
-                       previous_step = $scope.instructions[i-1];
-                       current_step = $scope.instructions[i];
-                       console.log('Previous:', previous_step);
-                       console.log('Current:', current_step);
 
-                       if (current_step !== previous_step) {
-                           console.log("new step");
-                           $scope.steps.push(current_step);
-                       }
-                   } else {
-                       previous_step = $scope.instructions[i-1];
-                       current_step = $scope.instructions[i];
-                       console.log('Previous:', previous_step);
-                       console.log('Current:', current_step);
-                       $scope.steps.push($scope.instructions[i]);
-                   }
-               }
-           console.log($scope.steps);
+                //Plot path
+                var lineStyle = {
+                    "color": "#0085ff",
+                    "weight": 5,
+                    "opacity": 0.65
+                };
 
-              // Only use these variables for checking current position along route (on locationfound)
-              $scope.point_route_check = routeResult.points;
-              $scope.instructions_check = routeResult.instructions;
+                L.geoJSON($scope.line, {
+                    style: lineStyle
+                }).addTo(map);
+            });
+        };
 
-              $scope.line_coord = [];
-              $scope.originGeoJSON = [];
-              $scope.destGeoJSON = [];
-              $scope.stationsGeoJSON = [];
-              var last = ($scope.route_points.length-1).toString();
-              for (var point in $scope.route_points) {
-                  for (var test in $scope.route_points[point]){
-                      var current_node = $scope.route_points[point][test];
-                      var tempGeoJSON = {
-                          "type": "Feature",
-                              "properties": {
-                                  // "concourse": $scope.route_points[point].concourse,
-                                  // "name": $scope.route_points[point].name,
-                                  "type": current_node.poi_type
-                              }, "geometry":{
-                                  "type": "Point",
-                                  "coordinates": [current_node.longitude, current_node.latitude]
-                              }
-                      };
-                      $scope.line_coord.push([current_node.longitude, current_node.latitude]);
-                      console.log($scope.line_coord);
-                      if (point === '0'){
-                          console.log("got origin");
-                          $scope.originGeoJSON.push(tempGeoJSON);
-                      } else if (point === last) {
-                          console.log("got dest");
-                          $scope.destGeoJSON.push(tempGeoJSON);
-                      } else if (current_node.poi_type === 'escalator'){
-                          console.log("got train station");
-                          $scope.stationsGeoJSON.push(tempGeoJSON);
-                      }
-                      break;
-                  }
+        //Gets current map object
+        leafletData.getMap('map').then(function(map) {
+            // Tries to get user current location and will 'watch' and 'follow' (request every 20 seconds and shift map view to follow user)
 
-              }
-              $scope.line = {
-                  "type": "Feature",
-                      "properties": {
-                      }, "geometry":{
-                          "type": "LineString",
-                          "coordinates": $scope.line_coord
-                      }
-              };
-              leafletData.getMap('map').then(function(map) {
-             map.fitBounds(L.latLngBounds([$scope.origin_lat, $scope.origin_lng], [$scope.destination_lat, $scope.destination_lng]));
-         });
-              $scope.drawRoute();
-          });
+        });
 
-          // Draws Route Path
-          $scope.drawRoute = function(){
-              leafletData.getMap('map').then(function(map) {
 
-                  var originStyle = {
-                      radius: 5,
-                      fillColor: "#5fad75",
-                      color: "#5fad75",
-                      weight: 1,
-                      opacity: 1,
-                      fillOpacity: 1
-                  };
+    };
 
-                  var destinationStyle = {
-                      radius: 5,
-                      fillColor: "#d63d3d",
-                      color: "#d63d3d",
-                      weight: 1,
-                      opacity: 1,
-                      fillOpacity: 1
-                  };
+    //Called when user EXITs navigation - resets page view, removes map layers, re-adds tilelayer to map.
+    $scope.stopNav = function (){
+        $scope.navigating = false;
+        leafletData.getMap('map').then(function(map) {
+            map.eachLayer(function(layer){
+                map.removeLayer(layer);
+            });
+            L.tileLayer(basemap, {maxZoom:20}).addTo(map);
+        });
+        $scope.query = '';
+        $scope.show_results = false;
+        $scope.show_all_steps = false;
+        $scope.arrived = false;
+    };
 
-                  var stationStyle = {
-                      radius: 5,
-                      fillColor: "#2e66d2",
-                      color: "#2e66d2",
-                      weight: 1,
-                      opacity: 1,
-                      fillOpacity: 1
-                  };
+    $ionicModal.fromTemplateUrl('templates/modal-template.html', {
+   scope: $scope,
+   animation: 'slide-in-down',
+}).then(function(modal) {
+   $scope.modal = modal;
+});
 
-                  L.geoJSON($scope.originGeoJSON, {
-                      pointToLayer: function (feature, latlng) {
-                          console.log('Plotting origin');
-                          return L.circleMarker(latlng, originStyle);
-                      }
-                  }).addTo(map);
+$scope.openModal = function() {
+  $scope.open_directions = true;
+   $scope.modal.show();
+};
 
-                  L.geoJSON($scope.destGeoJSON, {
-                      pointToLayer: function (feature, latlng) {
-                          console.log('Plotting destination');
-                          return L.circleMarker(latlng, destinationStyle);
-                      }
-                  }).addTo(map);
+$scope.closeModal = function() {
+    $scope.open_directions = false;
+   $scope.modal.hide();
+};
 
-                  // L.geoJSON($scope.stationsGeoJSON, {
-                  //     pointToLayer: function (feature, latlng) {
-                  //         console.log('Plotting train station');
-                  //         return L.circleMarker(latlng, stationStyle);
-                  //     }
-                  // }).addTo(map);
+//Cleanup the modal when we're done with it!
+$scope.$on('$destroy', function() {
+   $scope.modal.remove();
+});
 
-                  var lineStyle = {
-                      "color": "#0085ff",
-                      "weight": 5,
-                      "opacity": 0.65
-                  };
+// Execute action on hide modal
+$scope.$on('modal.hidden', function() {
+   // Execute action
+});
 
-                  L.geoJSON($scope.line, {
-                      style: lineStyle
-                  }).addTo(map);
-              });
-          };
-      };
-
-      $ionicModal.fromTemplateUrl('templates/modal-template.html', {
-     scope: $scope,
-     animation: 'slide-in-down',
-  }).then(function(modal) {
-     $scope.modal = modal;
-  });
-
-  $scope.openModal = function() {
-    $scope.open_directions = true;
-     $scope.modal.show();
-  };
-
-  $scope.closeModal = function() {
-      $scope.open_directions = false;
-     $scope.modal.hide();
-  };
-
-  //Cleanup the modal when we're done with it!
-  $scope.$on('$destroy', function() {
-     $scope.modal.remove();
-  });
-
-  // Execute action on hide modal
-  $scope.$on('modal.hidden', function() {
-     // Execute action
-  });
-
-  // Execute action on remove modal
-  $scope.$on('modal.removed', function() {
-     // Execute action
-  });
-
-      $scope.stopNav = function (){
-          $scope.navigating = false;
-          $scope.query = '';
-          $scope.results = false;
-          $scope.show_results = false;
-
-          leafletData.getMap('map').then(function(map) {
-              map.eachLayer(function(layer){
-                  map.removeLayer(layer);
-              });
-              L.tileLayer('https://api.mapbox.com/styles/v1/jesslyn-landgren/ciw6blbhw001u2kmgu04klrja/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiamVzc2x5bi1sYW5kZ3JlbiIsImEiOiJ4VUxXQ1BZIn0.6tb-5bu-J-kVGvAbTn6MQQ', {maxZoom:20}).addTo(map);
-          });
-      };
-  });
+// Execute action on remove modal
+$scope.$on('modal.removed', function() {
+   // Execute action
+});
+});
