@@ -38,7 +38,7 @@ app.config(function($stateProvider, $urlRouterProvider) {
 app.factory('AirportConnect', function($http) {
     var service = {};
     service.getSearchResults = function(query, origin) {
-        var url = 'http://localhost:5000/search';
+        var url = 'https://airnavatl.com/search';
         return $http({
             method: 'GET',
             url: url,
@@ -49,7 +49,7 @@ app.factory('AirportConnect', function($http) {
         });
     };
     service.getRoute = function(origin, destination) {
-        var url = 'http://localhost:5000/shortest_path';
+        var url = 'https://airnavatl.com/shortest_path';
         return $http({
             method: 'GET',
             url: url,
@@ -61,7 +61,7 @@ app.factory('AirportConnect', function($http) {
     };
 
     service.getAllPoints = function() {
-        var url = 'http://localhost:5000/all_points';
+        var url = 'https://airnavatl.com/all_points';
         return $http({
             method: 'GET',
             url: url,
